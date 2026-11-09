@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Xadrez Completo</title>
-    
-    <!-- Tailwind CSS -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♟️</text></svg>">
+    <title>Xadrez Online & Local</title>
+
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -15,755 +16,375 @@
                     colors: {
                         'board-light': '#f0d9b5',
                         'board-dark': '#b58863',
-                        'board-light-darkmode': '#64748b',
-                        'board-dark-darkmode': '#334155',
+                        'board-light-dark': '#64748b',
+                        'board-dark-dark': '#334155'
                     }
                 }
             }
         }
     </script>
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    
-    <!-- Chess.js para regras do jogo -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+    <!-- Fontes & Ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            touch-action: manipulation; /* Evita zoom acidental no celular ao tocar rápido */
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            touch-action: manipulation;
         }
 
-        /* Estilização avançada das peças Unicode para parecerem SVGs profissionais */
-        .piece {
-            font-size: 2.2rem;
-            line-height: 1;
-            cursor: pointer;
-            user-select: none;
-            transition: transform 0.15s ease;
+        /* Animações e Efeitos */
+        .piece-svg svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+            transition: transform 0.12s ease;
+        }
+        .piece-svg:hover svg {
+            transform: scale(1.08);
         }
 
-        @media (min-width: 640px) {
-            .piece { font-size: 3rem; }
+        /* Scrollbar customizada para o histórico */
+        #history-list::-webkit-scrollbar {
+            width: 5px;
         }
-
-        .piece:hover {
-            transform: scale(1.1);
-        }
-
-        /* Peças Brancas: Cor clara com borda/sombra escura para contraste */
-        .piece-w {
-            color: #ffffff;
-            filter: drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.8)) drop-shadow(0px 0px 1px rgba(0,0,0,1));
-        }
-
-        /* Peças Pretas: Cor escura com borda/sombra clara para contraste */
-        .piece-b {
-            color: #1a1a1a;
-            filter: drop-shadow(0px 2px 1px rgba(255, 255, 255, 0.4)) drop-shadow(0px 0px 1px rgba(255,255,255,0.5));
-        }
-
-        /* Indicador de movimento possível */
-        .hint-dot {
-            width: 30%;
-            height: 30%;
-            border-radius: 50%;
-            background-color: rgba(0, 0, 0, 0.2);
-            position: absolute;
-            pointer-events: none;
-        }
-
-        .dark .hint-dot {
-            background-color: rgba(255, 255, 255, 0.3);
-        }
-
-        /* Indicador de captura */
-        .hint-capture {
-            width: 90%;
-            height: 90%;
-            border-radius: 50%;
-            border: 4px solid rgba(0, 0, 0, 0.2);
-            position: absolute;
-            background-color: transparent;
-            pointer-events: none;
-        }
-        
-        .dark .hint-capture {
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        /* Célula selecionada e último movimento */
-        .highlight-selected {
-            background-color: rgba(234, 179, 8, 0.6) !important; /* Amarelo */
-        }
-        .highlight-check {
-            background-color: rgba(239, 68, 68, 0.7) !important; /* Vermelho */
+        #history-list::-webkit-scrollbar-thumb {
+            background-color: rgba(156, 163, 175, 0.5);
+            border-radius: 4px;
         }
     </style>
 </head>
-<body class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col items-center justify-center p-2 sm:p-4 transition-colors duration-300">
+<body class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col items-center justify-between p-2 sm:p-4 transition-colors duration-200">
 
-    <!-- Botão de Modo Escuro -->
-    <button id="theme-toggle" class="absolute top-4 right-4 p-2 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 focus:outline-none transition-colors shadow-md z-10">
-        <svg id="theme-toggle-dark-icon" class="hidden w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
-        </svg>
-        <svg id="theme-toggle-light-icon" class="hidden w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path>
-        </svg>
-    </button>
-
-    <div class="max-w-xl w-full flex flex-col items-center">
-        <!-- Cabeçalho e Status -->
-        <div class="text-center mb-4 w-full">
-            <h1 class="text-3xl font-extrabold mb-3">Xadrez</h1>
-            <div id="status-panel" class="inline-flex items-center justify-center px-6 py-2 bg-white dark:bg-gray-800 rounded-full shadow-sm text-lg transition-colors w-full sm:w-auto">
-                <span id="status-text">Iniciando...</span>
+    <!-- BARRA SUPERIOR: TÍTULO E BOTÕES DE CONTROLE -->
+    <header class="w-full max-w-4xl flex items-center justify-between mb-3 px-2">
+        <div class="flex items-center gap-2 sm:gap-3">
+            <span class="text-2xl sm:text-3xl">♟️</span>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    Xadrez Online
+                </h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Jogue online, contra amigos ou contra o computador</p>
             </div>
         </div>
 
-        <!-- Container do Tabuleiro -->
-        <div class="relative w-full max-w-[480px] aspect-square rounded-lg shadow-2xl overflow-hidden border-4 border-gray-800 dark:border-gray-600 bg-white dark:bg-gray-800">
-            <!-- Grid 8x8 do Tabuleiro -->
-            <div id="board" class="w-full h-full grid grid-cols-8 grid-rows-8">
-                <!-- As células serão geradas via JavaScript -->
-            </div>
+        <div class="flex items-center gap-2">
+            <!-- Botão de Mudo -->
+            <button id="btn-mute" class="p-2 sm:px-3 sm:py-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition-all" title="Ativar/Desativar Som">
+                <i class="fas fa-volume-up"></i>
+            </button>
 
-            <!-- Modal de Promoção de Peão (Oculto por padrão) -->
-            <div id="promotion-modal" class="hidden absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20">
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl text-center">
-                    <h3 class="text-lg font-bold mb-4">Promover Peão</h3>
-                    <div class="flex gap-4 justify-center" id="promotion-pieces">
-                        <!-- Botões preenchidos via JS dependendo da cor -->
+            <!-- Botão de Modo Escuro -->
+            <button id="theme-toggle" class="p-2 sm:px-3 sm:py-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition-all" title="Alternar Tema">
+                <i id="theme-icon" class="fas fa-moon"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- ÁREA PRINCIPAL DO JOGO -->
+    <main class="w-full max-w-4xl flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 sm:gap-6">
+        
+        <!-- COLUNA DA ESQUERDA: CARTÕES DE JOGADORES + TABULEIRO -->
+        <div class="w-full max-w-[460px] sm:max-w-[480px] flex flex-col items-center">
+            
+            <!-- CARTÃO DO JOGADOR SUPERIOR (OPONENTE) -->
+            <div id="top-player-card" class="w-full mb-1.5 px-3 py-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between transition-all">
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <div id="top-player-avatar" class="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-sm shadow">
+                        ⚫
                     </div>
+                    <div>
+                        <span id="top-player-name" class="font-bold text-sm sm:text-base">Pretas</span>
+                        <div class="flex items-center gap-1 mt-0.5" id="top-captured">
+                            <!-- Peças capturadas aparecem aqui -->
+                        </div>
+                    </div>
+                    <span id="top-advantage" class="hidden text-xs font-bold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5 rounded"></span>
+                </div>
+                <!-- Relógio -->
+                <div id="top-clock" class="hidden font-mono font-extrabold text-base sm:text-lg px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    05:00
                 </div>
             </div>
+
+            <!-- CONTAINER DO TABULEIRO -->
+            <div class="relative w-full aspect-square rounded-2xl shadow-2xl overflow-hidden border-4 border-gray-800 dark:border-gray-700 bg-[#b58863]">
+                <!-- Grid 8x8 do Tabuleiro -->
+                <div id="board" class="w-full h-full grid grid-cols-8 grid-rows-8">
+                    <!-- As 64 casas serão renderizadas pelo app.js -->
+                </div>
+
+                <!-- Modal de Promoção de Peão -->
+                <div id="promotion-modal" class="hidden absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-30">
+                    <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-2xl text-center max-w-[320px] border border-gray-200 dark:border-gray-700">
+                        <h3 class="text-base font-extrabold mb-3">Escolha a Promoção</h3>
+                        <div class="grid grid-cols-4 gap-2" id="promotion-pieces">
+                            <button id="promo-q" class="w-14 h-14 p-1 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-500 shadow transition flex items-center justify-center piece-svg" title="Dama"></button>
+                            <button id="promo-r" class="w-14 h-14 p-1 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-500 shadow transition flex items-center justify-center piece-svg" title="Torre"></button>
+                            <button id="promo-b" class="w-14 h-14 p-1 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-500 shadow transition flex items-center justify-center piece-svg" title="Bispo"></button>
+                            <button id="promo-n" class="w-14 h-14 p-1 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-500 shadow transition flex items-center justify-center piece-svg" title="Cavalo"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Área de Reações Animadas -->
+                <div id="reaction-container" class="absolute inset-0 pointer-events-none overflow-hidden z-25"></div>
+            </div>
+
+            <!-- CARTÃO DO JOGADOR INFERIOR (VOCÊ) -->
+            <div id="bottom-player-card" class="w-full mt-1.5 px-3 py-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between transition-all">
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <div id="bottom-player-avatar" class="w-8 h-8 rounded-full bg-white text-gray-800 border-2 border-gray-300 flex items-center justify-center font-bold text-sm shadow">
+                        ⚪
+                    </div>
+                    <div>
+                        <span id="bottom-player-name" class="font-bold text-sm sm:text-base">Brancas</span>
+                        <div class="flex items-center gap-1 mt-0.5" id="bottom-captured">
+                            <!-- Peças capturadas aparecem aqui -->
+                        </div>
+                    </div>
+                    <span id="bottom-advantage" class="hidden text-xs font-bold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5 rounded"></span>
+                </div>
+                <!-- Relógio -->
+                <div id="bottom-clock" class="hidden font-mono font-extrabold text-base sm:text-lg px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    05:00
+                </div>
+            </div>
+
+            <!-- PAINEL DE STATUS DO TURNO -->
+            <div id="status-panel" class="w-full mt-3 px-4 py-2.5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm text-center flex items-center justify-center gap-2">
+                <span id="status-text" class="text-sm sm:text-base font-semibold">Carregando tabuleiro...</span>
+            </div>
         </div>
 
-        <!-- Controles -->
-        <div class="mt-6 flex flex-col items-center gap-4 w-full max-w-[480px]">
-            <select id="game-mode" class="w-full bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-base font-semibold rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-3 shadow-sm transition-colors text-center cursor-pointer">
-                <option value="2p">🧑‍🤝‍🧑 Modo: Local (Mesma Tela)</option>
-                <option value="cpu-easy">🤖 1 Jogador (vs CPU Fácil)</option>
-                <option value="cpu-medium">🤖 1 Jogador (vs CPU Médio)</option>
-                <option value="cpu-hard">🧠 1 Jogador (vs CPU Difícil)</option>
-                <option value="online">🌐 Modo: Online (Multiplayer)</option>
-            </select>
-            
-            <!-- Controles Online (Ocultos por padrão) -->
-            <div id="online-controls" class="hidden w-full flex-col gap-3">
-                <div class="flex gap-2 w-full">
-                    <button id="btn-create-room" class="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium shadow-md transition-colors flex items-center justify-center gap-2">
-                        <i class="fas fa-plus"></i> Criar Sala
+        <!-- COLUNA DA DIREITA: CONTROLES, MODO ONLINE E HISTÓRICO -->
+        <div class="w-full max-w-[460px] sm:max-w-[480px] lg:max-w-[360px] flex flex-col gap-3">
+
+            <!-- SELETOR DE MODO DE JOGO -->
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                    Modo de Jogo
+                </label>
+                <select id="game-mode" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm font-bold rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none transition cursor-pointer">
+                    <option value="2p">🧑‍🤝‍🧑 Local (2 Jogadores na mesma tela)</option>
+                    <option value="online">🌐 Modo Online (Multiplayer)</option>
+                    <option value="cpu-easy">🤖 vs Computador (Fácil)</option>
+                    <option value="cpu-medium">🤖 vs Computador (Médio)</option>
+                    <option value="cpu-hard">🧠 vs Computador (Difícil)</option>
+                </select>
+
+                <!-- BOTÕES DE AÇÕES RÁPIDAS (DESFAZER, INVERTER, REINICIAR) -->
+                <div class="grid grid-cols-3 gap-2 mt-3">
+                    <button id="btn-flip" class="px-2 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-sm" title="Inverter o Tabuleiro">
+                        <i class="fas fa-retweet"></i> Inverter
                     </button>
-                    <div class="flex flex-1 gap-2">
-                        <input type="text" id="room-code-input" placeholder="CÓDIGO" maxlength="5" class="w-full px-2 py-2 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-center uppercase font-bold focus:outline-none focus:border-purple-500 dark:text-white text-gray-900">
-                        <button id="btn-join-room" class="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-md transition-colors flex items-center justify-center gap-2">
+                    <button id="btn-undo" class="px-2 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-sm" title="Desfazer Último Lance">
+                        <i class="fas fa-undo"></i> Voltar
+                    </button>
+                    <button id="btn-restart" class="px-2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-sm" title="Reiniciar Partida">
+                        <i class="fas fa-redo"></i> Reiniciar
+                    </button>
+                </div>
+            </div>
+
+            <!-- PAINEL DO MODO ONLINE (EXIBIDO QUANDO 'ONLINE' ESTIVER SELECIONADO) -->
+            <div id="online-card" class="hidden bg-white dark:bg-gray-800 p-4 rounded-2xl border-2 border-indigo-500/40 shadow-md">
+                
+                <!-- ESTADO 1: CONFIGURAÇÃO E ESCOLHA DE SALA -->
+                <div id="online-setup" class="flex flex-col gap-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                            Multiplayer Online
+                        </h2>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-bold">
+                            Disponível
+                        </span>
+                    </div>
+
+                    <!-- Configurações da partida -->
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <label class="block text-gray-500 dark:text-gray-400 font-bold mb-1">Conexão</label>
+                            <select id="online-engine-select" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-1.5 font-semibold focus:outline-none">
+                                <option value="p2p">🌐 Internet P2P</option>
+                                <option value="server">🏠 Servidor Local</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-500 dark:text-gray-400 font-bold mb-1">Tempo</label>
+                            <select id="online-time-select" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-1.5 font-semibold focus:outline-none">
+                                <option value="0">Sem Tempo</option>
+                                <option value="180">3 min (Blitz)</option>
+                                <option value="300" selected>5 min (Rápido)</option>
+                                <option value="600">10 min</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 font-bold mb-1">Jogar de:</label>
+                        <select id="online-color-select" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-1.5 text-xs font-semibold focus:outline-none">
+                            <option value="random">🎲 Aleatório (Sorteio)</option>
+                            <option value="w">⚪ Brancas</option>
+                            <option value="b">⚫ Pretas</option>
+                        </select>
+                    </div>
+
+                    <!-- Botão Criar Sala -->
+                    <button id="btn-create-room" class="w-full py-2.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md transition flex items-center justify-center gap-2">
+                        <i class="fas fa-plus-circle"></i> Criar Nova Sala
+                    </button>
+
+                    <!-- Divisor Ou -->
+                    <div class="flex items-center my-1">
+                        <div class="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                        <span class="flex-shrink mx-2 text-gray-400 text-xs font-bold">OU ENTRAR</span>
+                        <div class="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                    </div>
+
+                    <!-- Campo e Botão Entrar -->
+                    <div class="flex gap-2">
+                        <input type="text" id="room-code-input" placeholder="CÓDIGO (ex: K9W3R)" maxlength="8" class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center uppercase font-mono font-bold text-sm focus:border-indigo-500 focus:outline-none dark:text-white text-gray-900">
+                        <button id="btn-join-room" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-md transition flex items-center justify-center gap-1.5">
                             <i class="fas fa-sign-in-alt"></i> Entrar
                         </button>
                     </div>
                 </div>
-                <div id="room-info" class="hidden text-center text-sm font-semibold p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-lg border border-purple-200 dark:border-purple-800 transition-all">
-                    Sua Sala: <span id="display-room-code" class="text-xl font-black tracking-widest ml-2"></span>
+
+                <!-- ESTADO 2: LOBBY DE ESPERA (QUANDO A SALA FOI CRIADA) -->
+                <div id="online-lobby" class="hidden flex flex-col items-center gap-3 py-2 text-center">
+                    <span class="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                        Sala Criada com Sucesso!
+                    </span>
+                    <div class="px-5 py-2.5 bg-purple-50 dark:bg-purple-900/30 rounded-2xl border-2 border-dashed border-purple-400 dark:border-purple-600">
+                        <span class="text-xs text-gray-500 dark:text-gray-400 block font-medium">Código da Sala:</span>
+                        <span id="display-room-code" class="font-mono text-3xl font-black text-purple-700 dark:text-purple-300 tracking-widest">
+                            -----
+                        </span>
+                    </div>
+
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Envie o código ou o link abaixo para seu amigo entrar:
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-2 w-full">
+                        <button id="btn-copy-link" class="py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1.5">
+                            <i class="fas fa-link"></i> Copiar Link
+                        </button>
+                        <button id="btn-copy-code" class="py-2 px-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1.5">
+                            <i class="fas fa-copy"></i> Copiar Código
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 mt-2">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Aguardando oponente se conectar...</span>
+                    </div>
+                </div>
+
+                <!-- ESTADO 3: PARTIDA ONLINE ATIVA (CHAT E AÇÕES) -->
+                <div id="online-active" class="hidden flex flex-col gap-3">
+                    <div class="flex items-center justify-between text-xs font-bold text-green-600 dark:text-green-400">
+                        <span><i class="fas fa-circle text-[8px] animate-pulse"></i> Conectado ao Oponente</span>
+                        <span class="text-gray-400 font-mono text-[10px]" id="active-room-indicator"></span>
+                    </div>
+
+                    <!-- Barra de Reações Rápidas -->
+                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-2 rounded-xl">
+                        <button class="btn-emoji text-lg hover:scale-125 transition transform" data-emoji="👏" title="Boa jogada!">👏</button>
+                        <button class="btn-emoji text-lg hover:scale-125 transition transform" data-emoji="🔥" title="Pegou fogo!">🔥</button>
+                        <button class="btn-emoji text-lg hover:scale-125 transition transform" data-emoji="😮" title="Uau!">😮</button>
+                        <button class="btn-emoji text-lg hover:scale-125 transition transform" data-emoji="🤔" title="Pensando...">🤔</button>
+                        <button class="btn-emoji text-lg hover:scale-125 transition transform" data-emoji="🤝" title="Empate?">🤝</button>
+                        <button class="btn-emoji text-lg hover:scale-125 transition transform" data-emoji="⏳" title="Sua vez!">⏳</button>
+                        <button class="btn-emoji text-lg hover:scale-125 transition transform" data-emoji="👍" title="Legal!">👍</button>
+                    </div>
+
+                    <!-- Envio de Mensagem de Chat -->
+                    <div class="flex gap-1.5">
+                        <input type="text" id="chat-text-input" placeholder="Mensagem rápida..." maxlength="40" class="flex-1 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-xs focus:outline-none focus:border-indigo-500">
+                        <button id="btn-send-chat" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+
+                    <!-- Ações da Partida Online -->
+                    <div class="grid grid-cols-3 gap-2 mt-1">
+                        <button id="btn-offer-draw" class="py-1.5 px-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold transition">
+                            Propor Empate
+                        </button>
+                        <button id="btn-resign" class="py-1.5 px-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold transition">
+                            Desistir
+                        </button>
+                        <button id="btn-rematch" disabled class="py-1.5 px-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold opacity-50 transition">
+                            Revanche
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div class="flex gap-4">
-                <button id="btn-undo" class="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium shadow-md transition-colors flex items-center gap-2">
-                    <i class="fas fa-undo"></i> Desfazer
-                </button>
-                <button id="btn-restart" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-md transition-colors flex items-center gap-2">
-                    <i class="fas fa-redo"></i> Reiniciar
-                </button>
+            <!-- HISTÓRICO DE LANCES -->
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col flex-1">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Histórico de Lances
+                    </span>
+                    <i class="fas fa-list-ol text-xs text-gray-400"></i>
+                </div>
+                <div id="history-list" class="h-40 sm:h-48 overflow-y-auto pr-1 flex flex-col gap-0.5 divide-y divide-gray-100 dark:divide-gray-700/50">
+                    <p class="text-xs text-gray-400 text-center py-4">Nenhum lance realizado ainda.</p>
+                </div>
             </div>
+
         </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="w-full max-w-4xl text-center py-2 text-xs text-gray-400 dark:text-gray-500">
+        Xadrez Completo no Navegador • Suporta P2P WebRTC e Servidor Local • Regras FIDE
+    </footer>
+
+    <!-- NOTIFICAÇÃO TOAST FLUTUANTE -->
+    <div id="toast" class="fixed bottom-6 px-4 py-2.5 bg-gray-900/90 dark:bg-white/90 text-white dark:text-gray-900 rounded-xl shadow-2xl text-xs sm:text-sm font-bold opacity-0 translate-y-4 transition-all duration-300 pointer-events-none z-50">
+        Mensagem
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <!-- SCRIPTS DO JOGO (Locais e com CDNs) -->
+    <script src="js/chess.min.js"></script>
+    <script src="js/peerjs.min.js"></script>
+    <script src="js/pieces.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/app.js"></script>
 
-        // --- FIREBASE SETUP ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'chess-app-default';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        let app, db, auth, user;
-        
-        async function initFirebase() {
-            if (!firebaseConfig) return;
-            try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                user = auth.currentUser;
-            } catch (e) {
-                console.error("Erro na inicialização do Firebase:", e);
-            }
-        }
-        initFirebase();
+    <!-- Script de alternância de tema escuro/claro -->
+    <script>
+        const themeBtn = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
 
-        // --- CONFIGURAÇÕES DE TEMA ESCURO ---
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        const darkIcon = document.getElementById('theme-toggle-dark-icon');
-        const lightIcon = document.getElementById('theme-toggle-light-icon');
-
-        function updateThemeIcons() {
-            if (document.documentElement.classList.contains('dark')) {
-                darkIcon.classList.add('hidden');
-                lightIcon.classList.remove('hidden');
+        function updateTheme(dark) {
+            if (dark) {
+                document.documentElement.classList.add('dark');
+                themeIcon.className = 'fas fa-sun text-yellow-400';
+                localStorage.setItem('theme', 'dark');
             } else {
-                lightIcon.classList.add('hidden');
-                darkIcon.classList.remove('hidden');
+                document.documentElement.classList.remove('dark');
+                themeIcon.className = 'fas fa-moon text-gray-600';
+                localStorage.setItem('theme', 'light');
             }
         }
 
-        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-        updateThemeIcons();
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const savedTheme = localStorage.getItem('theme');
+        updateTheme(savedTheme ? savedTheme === 'dark' : prefersDark);
 
-        themeToggleBtn.addEventListener('click', function() {
-            document.documentElement.classList.toggle('dark');
-            if (document.documentElement.classList.contains('dark')) {
-                localStorage.setItem('color-theme', 'dark');
-            } else {
-                localStorage.setItem('color-theme', 'light');
-            }
-            updateThemeIcons();
-            renderBoard(); // Re-renderiza para atualizar cores do tabuleiro se necessário
+        themeBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.contains('dark');
+            updateTheme(!isDark);
         });
-
-        // --- LÓGICA DO XADREZ ---
-        const game = new Chess();
-        const boardEl = document.getElementById('board');
-        const statusText = document.getElementById('status-text');
-        
-        let selectedSquare = null;
-        let possibleMoves = [];
-        let pendingPromotionMove = null;
-        let isCpuThinking = false;
-
-        // Variáveis do Modo Online
-        let isOnline = false;
-        let myColor = 'w';
-        let currentRoomId = null;
-        let roomStatus = 'local'; // local, waiting, playing
-        let unsubscribeRoom = null;
-
-        const PIECE_VALUES = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 900 };
-
-        // Mapeamento de peças
-        const PIECE_SYMBOLS = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
-
-        // Nomes das colunas no xadrez (a-h)
-        const COLUMNS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-
-        function initGame() {
-            game.reset();
-            selectedSquare = null;
-            possibleMoves = [];
-            renderBoard();
-        }
-
-        function renderBoard() {
-            boardEl.innerHTML = '';
-            
-            const board = game.board(); 
-
-            // Gira o tabuleiro visualmente se o jogador for as Pretas no modo online
-            if (myColor === 'b') {
-                boardEl.classList.add('rotate-180');
-            } else {
-                boardEl.classList.remove('rotate-180');
-            }
-
-            for (let r = 0; r < 8; r++) {
-                for (let c = 0; c < 8; c++) {
-                    const squareId = COLUMNS[c] + (8 - r);
-                    const piece = board[r][c];
-                    
-                    const isLightSquare = (r + c) % 2 === 0;
-                    
-                    const squareEl = document.createElement('div');
-                    squareEl.className = `flex items-center justify-center relative ${
-                        isLightSquare 
-                            ? 'bg-board-light dark:bg-board-light-darkmode' 
-                            : 'bg-board-dark dark:bg-board-dark-darkmode'
-                    }`;
-                    
-                    if (selectedSquare === squareId) {
-                        squareEl.classList.add('highlight-selected');
-                    }
-
-                    if (piece && piece.type === 'k' && piece.color === game.turn() && game.in_check()) {
-                        squareEl.classList.add('highlight-check');
-                    }
-
-                    if (piece) {
-                        const pieceEl = document.createElement('div');
-                        pieceEl.innerHTML = PIECE_SYMBOLS[piece.type];
-                        // Desfaz a rotação individualmente para a peça não ficar de ponta cabeça
-                        let pClass = `piece ${piece.color === 'w' ? 'piece-w' : 'piece-b'} z-10 transition-transform`;
-                        if (myColor === 'b') pClass += ' rotate-180';
-                        pieceEl.className = pClass;
-                        squareEl.appendChild(pieceEl);
-                    }
-
-                    const moveHint = possibleMoves.find(m => m.to === squareId);
-                    if (moveHint) {
-                        const hintEl = document.createElement('div');
-                        // Se houver peça inimiga, desenha um anel (captura), se for vazio, desenha um ponto
-                        hintEl.className = piece ? 'hint-capture z-20' : 'hint-dot z-20';
-                        squareEl.appendChild(hintEl);
-                    }
-
-                    // Evento de clique/toque
-                    squareEl.onclick = () => handleSquareClick(squareId);
-                    
-                    boardEl.appendChild(squareEl);
-                }
-            }
-            updateStatus();
-        }
-
-        function handleSquareClick(squareId) {
-            if (game.game_over() || isCpuThinking) return;
-
-            // Bloqueio rigoroso no modo Online: Só joga na própria vez e se a sala estiver pronta
-            if (isOnline) {
-                if (roomStatus !== 'playing') return;
-                if (game.turn() !== myColor) return;
-            }
-
-            if (selectedSquare) {
-                const move = possibleMoves.find(m => m.to === squareId);
-                
-                if (move) {
-                    if (move.flags.includes('p') || move.flags.includes('cp')) {
-                        pendingPromotionMove = move;
-                        showPromotionModal();
-                        return;
-                    }
-
-                    game.move({ from: selectedSquare, to: squareId });
-                    pushMoveToFirebase(); // Sincroniza a jogada no servidor
-                    selectedSquare = null;
-                    possibleMoves = [];
-                    renderBoard();
-                    checkTriggerCpu();
-                    return;
-                }
-
-                const piece = game.get(squareId);
-                // No modo online, o jogador só pode selecionar peças da sua própria cor
-                if (piece && piece.color === game.turn() && (!isOnline || piece.color === myColor)) {
-                    selectedSquare = squareId;
-                    possibleMoves = game.moves({ square: squareId, verbose: true });
-                    renderBoard();
-                    return;
-                }
-
-                selectedSquare = null;
-                possibleMoves = [];
-                renderBoard();
-            } else {
-                const piece = game.get(squareId);
-                if (piece && piece.color === game.turn() && (!isOnline || piece.color === myColor)) {
-                    selectedSquare = squareId;
-                    possibleMoves = game.moves({ square: squareId, verbose: true });
-                    renderBoard();
-                }
-            }
-        }
-
-        // --- SISTEMA DE PROMOÇÃO DE PEÃO ---
-        function showPromotionModal() {
-            const modal = document.getElementById('promotion-modal');
-            const container = document.getElementById('promotion-pieces');
-            container.innerHTML = '';
-            
-            const color = game.turn();
-            const pieces = ['q', 'r', 'b', 'n']; // Rainha, Torre, Bispo, Cavalo
-            
-            pieces.forEach(p => {
-                const btn = document.createElement('button');
-                btn.className = `w-16 h-16 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition text-4xl shadow-sm border border-gray-300 dark:border-gray-500`;
-                
-                const pieceIcon = document.createElement('div');
-                pieceIcon.innerHTML = PIECE_SYMBOLS[p];
-                pieceIcon.className = `piece ${color === 'w' ? 'piece-w' : 'piece-b'}`;
-                
-                btn.appendChild(pieceIcon);
-                
-                btn.onclick = () => {
-                    executePromotion(p);
-                };
-                container.appendChild(btn);
-            });
-            
-            modal.classList.remove('hidden');
-        }
-
-        function executePromotion(pieceType) {
-            if (pendingPromotionMove) {
-                game.move({
-                    from: pendingPromotionMove.from,
-                    to: pendingPromotionMove.to,
-                    promotion: pieceType
-                });
-                pushMoveToFirebase(); // Sincroniza promoção online
-                pendingPromotionMove = null;
-                selectedSquare = null;
-                possibleMoves = [];
-                document.getElementById('promotion-modal').classList.add('hidden');
-                renderBoard();
-                checkTriggerCpu();
-            }
-        }
-
-        function updateStatus() {
-            let statusHTML = '';
-            let moveColor = game.turn() === 'w' ? 'Brancas' : 'Pretas';
-            let colorClass = game.turn() === 'w' ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400';
-
-            if (isOnline) {
-                if (roomStatus === 'waiting') {
-                    statusHTML = `<span class="text-purple-600 dark:text-purple-400"><i class="fas fa-spinner fa-spin mr-2"></i> Aguardando oponente...</span>`;
-                } else if (roomStatus === 'playing') {
-                    if (game.in_checkmate()) {
-                        const winner = game.turn() === 'w' ? 'Pretas' : 'Brancas';
-                        statusHTML = `🏆 Xeque-mate! <b>${winner}</b> vencem.`;
-                    } else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
-                        statusHTML = '🤝 Jogo Empatado!';
-                    } else {
-                        if (game.turn() === myColor) {
-                            statusHTML = `<span class="text-green-600 dark:text-green-400 font-bold"><i class="fas fa-circle mr-1"></i> Sua vez!</span>`;
-                            if (game.in_check()) statusHTML += ' <span class="text-red-500 font-bold ml-2">(Xeque!)</span>';
-                        } else {
-                            statusHTML = `<span class="text-gray-500 dark:text-gray-400 font-medium"><i class="far fa-circle mr-1"></i> Vez do oponente</span>`;
-                            if (game.in_check()) statusHTML += ' <span class="text-red-500 font-bold ml-2">(Xeque!)</span>';
-                        }
-                    }
-                }
-            } else {
-                if (game.in_checkmate()) {
-                    const winner = game.turn() === 'w' ? 'Pretas' : 'Brancas';
-                    statusHTML = `🏆 Xeque-mate! <b>${winner}</b> vencem.`;
-                    colorClass = 'text-green-600 dark:text-green-400';
-                } else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
-                    statusHTML = '🤝 Jogo Empatado!';
-                    colorClass = 'text-orange-600 dark:text-orange-400';
-                } else {
-                    if (isCpuThinking) {
-                        statusHTML = `🤖 <b class="text-indigo-600 dark:text-indigo-400">CPU Pensando...</b>`;
-                    } else {
-                        statusHTML = `Vez das <b class="${colorClass}">${moveColor}</b>`;
-                        if (game.in_check()) {
-                            statusHTML += ' <span class="text-red-500 font-bold ml-2">(Xeque!)</span>';
-                        }
-                    }
-                }
-            }
-            
-            statusText.innerHTML = statusHTML;
-        }
-
-        // --- LÓGICA DA CPU (MINIMAX) ---
-        function checkTriggerCpu() {
-            const mode = document.getElementById('game-mode').value;
-            if (mode !== '2p' && mode !== 'online' && game.turn() === 'b' && !game.game_over()) {
-                isCpuThinking = true;
-                updateStatus();
-                setTimeout(makeCpuMove, 500); // 500ms de delay para a jogada
-            }
-        }
-
-        function evaluateBoard(gameObj) {
-            let totalEvaluation = 0;
-            const board = gameObj.board();
-            for (let i = 0; i < 8; i++) {
-                for (let j = 0; j < 8; j++) {
-                    const piece = board[i][j];
-                    if (piece) {
-                        const val = PIECE_VALUES[piece.type];
-                        totalEvaluation += piece.color === 'w' ? val : -val;
-                    }
-                }
-            }
-            return totalEvaluation;
-        }
-
-        function minimax(gameObj, depth, alpha, beta, isMaximizingPlayer) {
-            if (depth === 0 || gameObj.game_over()) {
-                return evaluateBoard(gameObj);
-            }
-
-            const moves = gameObj.moves();
-
-            if (isMaximizingPlayer) {
-                let bestVal = -Infinity;
-                for (let i = 0; i < moves.length; i++) {
-                    gameObj.move(moves[i]);
-                    bestVal = Math.max(bestVal, minimax(gameObj, depth - 1, alpha, beta, !isMaximizingPlayer));
-                    gameObj.undo();
-                    alpha = Math.max(alpha, bestVal);
-                    if (beta <= alpha) break; // Poda Alpha
-                }
-                return bestVal;
-            } else {
-                let bestVal = Infinity;
-                for (let i = 0; i < moves.length; i++) {
-                    gameObj.move(moves[i]);
-                    bestVal = Math.min(bestVal, minimax(gameObj, depth - 1, alpha, beta, !isMaximizingPlayer));
-                    gameObj.undo();
-                    beta = Math.min(beta, bestVal);
-                    if (beta <= alpha) break; // Poda Beta
-                }
-                return bestVal;
-            }
-        }
-
-        function getBestMove(depth) {
-            const moves = game.moves();
-            if (moves.length === 0) return null;
-
-            let bestVal = Infinity; // CPU joga de Pretas, quer minimizar o placar
-            let bestMove = null;
-
-            // Embaralhar os movimentos evita que a CPU repita o mesmo exato jogo caso haja empate de pontos
-            moves.sort(() => Math.random() - 0.5);
-
-            for (let i = 0; i < moves.length; i++) {
-                const move = moves[i];
-                game.move(move);
-                // Após a CPU jogar, é o turno das brancas (Maximize = true)
-                const boardVal = minimax(game, depth - 1, -Infinity, Infinity, true);
-                game.undo();
-
-                if (boardVal < bestVal) {
-                    bestVal = boardVal;
-                    bestMove = move;
-                }
-            }
-            return bestMove || moves[0];
-        }
-
-        function makeCpuMove() {
-            const mode = document.getElementById('game-mode').value;
-            let move = null;
-            const moves = game.moves();
-            
-            if (moves.length === 0) return;
-
-            if (mode === 'cpu-easy') {
-                move = moves[Math.floor(Math.random() * moves.length)];
-            } else if (mode === 'cpu-medium') {
-                move = getBestMove(2);
-            } else if (mode === 'cpu-hard') {
-                move = getBestMove(3);
-            }
-
-            if (move) {
-                game.move(move);
-            }
-            
-            isCpuThinking = false;
-            selectedSquare = null;
-            possibleMoves = [];
-            renderBoard();
-        }
-
-        // --- INTEGRAÇÃO ONLINE (FIREBASE) ---
-        async function pushMoveToFirebase() {
-            if (!isOnline || !currentRoomId || !user || !db) return;
-            try {
-                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chessRooms', currentRoomId);
-                await updateDoc(roomRef, {
-                    fen: game.fen(),
-                    lastUpdate: Date.now()
-                });
-            } catch (e) {
-                console.error("Erro ao enviar jogada:", e);
-            }
-        }
-
-        function listenToRoom(roomRef) {
-            if (unsubscribeRoom) unsubscribeRoom();
-            
-            unsubscribeRoom = onSnapshot(roomRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    roomStatus = data.status;
-                    
-                    // Se o FEN do servidor for diferente, aplica o estado (oponente jogou)
-                    if (data.fen !== game.fen()) {
-                        game.load(data.fen);
-                        selectedSquare = null;
-                        possibleMoves = [];
-                        renderBoard();
-                    } else {
-                        updateStatus();
-                    }
-                }
-            }, (error) => {
-                console.error("Erro no listener da sala:", error);
-            });
-        }
-
-        document.getElementById('btn-create-room').addEventListener('click', async () => {
-            if (!user || !db) return;
-            const code = Math.random().toString(36).substring(2, 7).toUpperCase();
-            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chessRooms', code);
-            
-            try {
-                await setDoc(roomRef, {
-                    fen: game.fen(),
-                    playerWhite: user.uid,
-                    playerBlack: null,
-                    status: 'waiting',
-                    lastUpdate: Date.now()
-                });
-
-                isOnline = true;
-                myColor = 'w'; // Criador joga de Brancas
-                currentRoomId = code;
-                roomStatus = 'waiting';
-                
-                document.getElementById('room-info').classList.remove('hidden');
-                document.getElementById('display-room-code').innerText = code;
-                
-                initGame();
-                listenToRoom(roomRef);
-            } catch (e) {
-                console.error("Erro ao criar sala", e);
-            }
-        });
-
-        document.getElementById('btn-join-room').addEventListener('click', async () => {
-            const codeInput = document.getElementById('room-code-input');
-            const code = codeInput.value.trim().toUpperCase();
-            if (!code || !user || !db) return;
-            
-            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chessRooms', code);
-            try {
-                const roomSnap = await getDoc(roomRef);
-                
-                if (roomSnap.exists()) {
-                    const data = roomSnap.data();
-                    // Sala vazia para o player 2
-                    if (data.status === 'waiting' && data.playerWhite !== user.uid) {
-                        await updateDoc(roomRef, {
-                            playerBlack: user.uid,
-                            status: 'playing',
-                            lastUpdate: Date.now()
-                        });
-                        
-                        isOnline = true;
-                        myColor = 'b'; // Quem entra joga de Pretas
-                        currentRoomId = code;
-                        roomStatus = 'playing';
-                        
-                        document.getElementById('room-info').classList.remove('hidden');
-                        document.getElementById('display-room-code').innerText = code;
-                        
-                        game.load(data.fen);
-                        listenToRoom(roomRef);
-                        renderBoard();
-                    } 
-                    // Reconectando caso o jogador atualize a página sem querer
-                    else if (data.status === 'playing') {
-                        if (data.playerBlack === user.uid) {
-                            isOnline = true; myColor = 'b'; currentRoomId = code; roomStatus = 'playing';
-                            document.getElementById('room-info').classList.remove('hidden');
-                            document.getElementById('display-room-code').innerText = code;
-                            listenToRoom(roomRef);
-                            renderBoard();
-                        } else if (data.playerWhite === user.uid) {
-                            isOnline = true; myColor = 'w'; currentRoomId = code; roomStatus = 'playing';
-                            document.getElementById('room-info').classList.remove('hidden');
-                            document.getElementById('display-room-code').innerText = code;
-                            listenToRoom(roomRef);
-                            renderBoard();
-                        }
-                    }
-                }
-            } catch(e) {
-                console.error("Erro ao entrar na sala", e);
-            }
-        });
-
-        // Controles de Botões Básicos
-        document.getElementById('btn-restart').addEventListener('click', () => {
-            if (isOnline) return; // Bloqueia reiniciar a partida durante um online para não quebrar sincronicidade
-            initGame();
-        });
-        
-        document.getElementById('btn-undo').addEventListener('click', () => {
-            if (isCpuThinking || isOnline) return; // Não permite voltar a jogada online
-            
-            const mode = document.getElementById('game-mode').value;
-            game.undo(); 
-            
-            // Se estiver jogando contra a máquina, desfaz a jogada da máquina também
-            if (mode !== '2p') {
-                game.undo();
-            }
-
-            selectedSquare = null;
-            possibleMoves = [];
-            document.getElementById('promotion-modal').classList.add('hidden');
-            renderBoard();
-        });
-
-        document.getElementById('game-mode').addEventListener('change', (e) => {
-            const mode = e.target.value;
-            const onlineControls = document.getElementById('online-controls');
-            const undoBtn = document.getElementById('btn-undo');
-            const restartBtn = document.getElementById('btn-restart');
-
-            if (mode === 'online') {
-                onlineControls.classList.remove('hidden');
-                onlineControls.classList.add('flex');
-                undoBtn.classList.add('opacity-50', 'cursor-not-allowed'); 
-                restartBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                initGame();
-            } else {
-                onlineControls.classList.add('hidden');
-                onlineControls.classList.remove('flex');
-                undoBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                restartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                
-                if (isOnline) {
-                    isOnline = false;
-                    if (unsubscribeRoom) {
-                        unsubscribeRoom();
-                        unsubscribeRoom = null;
-                    }
-                    myColor = 'w';
-                    currentRoomId = null;
-                    roomStatus = 'local';
-                    document.getElementById('room-info').classList.add('hidden');
-                    initGame();
-                }
-                checkTriggerCpu();
-            }
-        });
-
-        // Inicializa o jogo ao carregar
-        window.onload = initGame;
     </script>
-    
-    <!-- Fonte de ícones para os botões -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </body>
 </html>
